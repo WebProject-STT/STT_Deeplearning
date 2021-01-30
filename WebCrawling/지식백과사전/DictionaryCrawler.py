@@ -13,7 +13,7 @@ class DictionaryCrawler(object):
     def __init__(self, dict_categories):
         self.categories = dict_categories
         self.select_categories = []
-
+        
     def set_category(self, arg):
         # for category in arg:
         #     if category not in self.categories.keys():
@@ -38,15 +38,12 @@ class DictionaryCrawler(object):
         print(category_name + " PID: " + str(os.getpid()))
         
         # csv파일 작성 Setting
-        # writer = Writer(dict_categories=category_name)
+        writer = Writer(dict_categories=category_name)
 
         # 기사 URL 형식 지정
         nums = self.categories.get(category_name)
         url = f'https://terms.naver.com/list.nhn?cid={nums[0]}&categoryId={nums[1]}'
-        if category_name != '공룡':
-            total_urls = self.find_totalpage(url)
-        else:
-            total_urls = [url]
+        total_urls = self.find_totalpage(url)
         print(category_name, "url parsing finish!")
         print(category_name, "crawling start!!")
 
@@ -56,34 +53,61 @@ class DictionaryCrawler(object):
         for url in total_urls:
             if count > MAX_COUNT : break
             request = requests.get(url, headers={'User-Agent':'Mozilla/5.0'})
-            soup = BeautifulSoup(request.content, 'html.parser')
-            ul = soup.find('ul', {'class' : 'content_list'})
-            if category_name != '공룡':
-                temp_list = ul.findAll('strong')
-            else:
-                print(ul)
+            document = BeautifulSoup(request.content, 'html.parser')
+            ul = document.find('ul', {'class' : 'content_list'})
+            strong_list = ul.findAll('strong')
             post_urls = []
-            for tag in temp_list:
+            for strong in strong_list:
                 try:
-                    post_urls.append(tag.a['href'])
+                    post_urls.append(strong.a['href'])
                 except: continue
             count += len(post_urls)
-            del temp_list
 
             # 지식 백과사전 URL
             for content_url in post_urls:
                 sleep(0.01) # 크롤링 대기시간
-
-                # 기사 HTML가져오기
-                html = requests.get(content_url, headers={'User-Agent':'Mozilla/5.0'})
+                # 지식 HTML가져오기
+                html = requests.get('https://terms.naver.com/'+content_url, headers={'User-Agent':'Mozilla/5.0'})
                 try:
                     soup = BeautifulSoup(html.content, 'html.parser')
                 except:
                     continue
-                
 
-
+                # 단어 가져오기
+                try:
+                    word = soup.find('h2', {'class': 'headword'})
+                    new_word = re.sub('[^A-Za-z0-9가-힣]', '', word.string)
+                    if not word.string: continue # 공백이면 제외
+                except: continue
                 
+                # 본문 가져오기
+                try:
+                    content = soup.find('div', {'id': 'size_ct'})
+                    texts = ''
+                    summary = content.find('dl', {'class': 'summary_area'})
+                    if summary:
+                        texts = summary.text[3:]
+                    else:
+                        p_texts = content.findAll('p')
+                        for i in range(len(p_texts)):
+                            if i == 3: break # 최대 text 3개까지만 저장
+                            texts += p_texts[i].text + ' '
+                    
+                    new_text = re.sub('&nbsp; | &nbsp;| \n|\t|\r', '', texts)
+                    new_text = re.sub('\n\n', ' ', new_text)
+                    new_text = re.sub('[^A-Za-z0-9가-힣.]', ' ', new_text)
+                    new_text = re.sub(' +', ' ', new_text)
+                except: continue
+                
+                if not new_text: continue # 공백이면 제외
+
+                # CSV파일에 작성
+                writer.write_row([content_url, new_word, new_text])
+
+                del content_url
+                del new_word, new_text
+                del html, soup
+    
     def start(self):
         for category_name in self.select_categories:
             proc = Process(target=self.crawling, args=(category_name, ))
@@ -107,18 +131,17 @@ if __name__ == "__main__":
             temp = []
         temp.append(key)
     
-    # for category in four_categories:
-    #     # URL Setting
-    #     Crawler.set_category(category)
-    #     print(Crawler.select_categories)
-    #     print()
+    for category in four_categories:
+        # URL Setting
+        Crawler.set_category(category)
+        print(Crawler.select_categories)
 
-    #     # Multi-processing start
-    #     Crawler.start()
-    #     break
+        # Multi-processing start
+        Crawler.start()
+        break
 
-    Crawler.set_category('공룡') # four_categories[0][0]
-    Crawler.crawling('공룡')
+    # Crawler.set_category(four_categories[0][0])
+    # Crawler.crawling(four_categories[0][0])
     
 
     
