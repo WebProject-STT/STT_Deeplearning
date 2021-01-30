@@ -109,7 +109,6 @@ class DictionaryCrawler(object):
                 del html, soup
         writer.close()
         print(category_name, "finish!!")
-        os.system('taskkill /f pid '+str(os.getpid()))
         return
 
     def start(self):
