@@ -87,6 +87,11 @@ class DictionaryCrawler(object):
                     summary = content.find('dl', {'class': 'summary_area'})
                     if summary:
                         texts = summary.text[3:]
+                        if len(texts) < 10: 
+                            p_texts = content.findAll('p')
+                            for i in range(len(p_texts)):
+                                if i == 3: break # 최대 text 3개까지만 저장
+                                texts += p_texts[i].text + ' '
                     else:
                         p_texts = content.findAll('p')
                         for i in range(len(p_texts)):
