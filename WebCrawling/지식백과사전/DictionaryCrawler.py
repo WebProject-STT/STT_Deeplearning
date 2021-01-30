@@ -7,7 +7,7 @@ import json
 import os
 from time import sleep
 
-MAX_COUNT = 100
+MAX_COUNT = 10000
 
 class DictionaryCrawler(object):
     def __init__(self, dict_categories):
@@ -109,6 +109,8 @@ class DictionaryCrawler(object):
                 del html, soup
         writer.close()
         print(category_name, "finish!!")
+        os.system('taskkill /f pid '+str(os.getpid()))
+        return
 
     def start(self):
         for category_name in self.select_categories:
