@@ -21,7 +21,7 @@ class Writer(object):
             self.file = open(file_name, 'w', encoding='euc-kr', newline='')
     
     def write_row(self, row):
-        self.csv_writer.write_row(row)
+        self.csv_writer.writerow(row)
     
     def close(self):
         self.file.close()
