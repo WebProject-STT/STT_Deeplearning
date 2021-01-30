@@ -124,7 +124,7 @@ class DictionaryCrawler(object):
 if __name__ == "__main__":
 
     # json file load
-    file_name = 'C:/Users/msi/OneDrive/문서/GitHub/STT_Deeplearning/WebCrawling/지식백과사전/category.json'
+    file_name = ''
     with open(file_name, 'rt', encoding='UTF8') as json_file:
         dict_categories = json.load(json_file) # json -> dict으로 변환됨
 
