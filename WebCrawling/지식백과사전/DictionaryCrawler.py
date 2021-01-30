@@ -109,6 +109,7 @@ class DictionaryCrawler(object):
                 del html, soup
         writer.close()
         print(category_name, "finish!!")
+
     def start(self):
         for category_name in self.select_categories:
             proc = Process(target=self.crawling, args=(category_name, ))
@@ -132,14 +133,14 @@ if __name__ == "__main__":
             temp = []
         temp.append(key)
     print(len(four_categories))
-    for category in four_categories:
-        print(category, " start !_!")
-        # URL Setting
-        Crawler.set_category(category)
-        print(Crawler.select_categories)
+    #for category in four_categories:
+    print(four_categories[0], " start !_!")
+    # URL Setting
+    Crawler.set_category(four_categories[0])
+    print(Crawler.select_categories)
 
-        # Multi-processing start
-        Crawler.start()
+    # Multi-processing start
+    Crawler.start()
 
     
 
