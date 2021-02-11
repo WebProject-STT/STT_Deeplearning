@@ -1,2 +1,2 @@
-LSTM_/model/Naver_dict_lstm.h5 filter=lfs diff=lfs merge=lfs -text
+LSTM_/model/Naver_dict_l2stm.h5 filter=lfs diff=lfs merge=lfs -text
 LSTM_/model/Naver_dict_lstm.h5 filter=lfs diff=lfs merge=lfs -text
