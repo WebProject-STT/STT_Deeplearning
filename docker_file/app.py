@@ -16,8 +16,28 @@ mecab = Mecab()
 
 app = Flask(__name__)
 
+def rmmult(sort_):
+    lili = []
+    for i in range(len(sort_)):
+        if (sort_[i] in lili) or (sort_[i][1] < 0.01):
+            continue
+        else:
+            lili.append(sort_[i])
+    return lili
 
-def keyword_subjectClassifier():
+def keyword_subjectClassifier(str_, nums):
+    ############################## setting ########################################
+    # model load
+    model = load_model('./tools/Naver_dict_l3stm.h5')
+
+    # tokenizer load
+    with open("./tools/tokenizer3.pickle", 'rb') as fp:
+        tokenizer = pickle.load(fp)
+
+    # token load
+    with open("./tools/token3.json", "r") as st_json:
+        topic = json.load(st_json)
+
     max_word =20000
     max_len = 1000 #max_len = 500
     stop_words = [
@@ -36,8 +56,121 @@ def keyword_subjectClassifier():
         '그래', '그냥', '바로', '누가', '다시', '그래도', '간단히', '거야', '이따', '00', '근데', '결국', '이때', '누가', '그런', '딱', '일단',
         '보면', '하나', '어디', '부터', '원', '위하', '나오', '중', '못하', '그렇', '오', '대하', '한', '지', '하']
 
+    ########################## preprocessing ######################################
+    str_ = re.sub('[^A-Za-z0-9가-힣.]', ' ', str_)
+    str_ = re.sub(' +', ' ', str_)
+
+    ########################## verb find and processing #############################
+    morph = mecab.pos(str_)
+    new_str = ''
+    verb_1 = ['다', '요', '죠', '까', '니']
+    for word, tag in morph:
+        if 'EF' in tag or 'VX' in tag or 'EC' in tag:
+            if word[-1] in verb_1:
+                new_str += word +'.'
+            else:
+                new_str += word + ' '
+        else:
+            new_str += word + ' '
+
+    # 형태소 분석기로 부족한 동사들 dotword로 충전
+    dotword = [
+        '립니다', '까요', '니다', '었다', '해요', '혔다', '였다', '든요', '거든요', '아요', 
+        '습니다', '합니다', '입니다', '랍니다', '씁시다', '합시다','하죠', '보죠', '이죠', '렇죠', 
+        '시죠', '었고요', '였고요', '니고요', '렇고요', '니까요', '는데>요', '니까', '이에요', '잖아요', 
+        '고요', '구요','게요']
+    for i in dotword:
+        new_str = new_str.replace(i + ' ', i + '.')
+
+    ###################### preprocessing 2 ########################################
+    documents = new_str.split('.')
+    new_docs = []
+    for i in documents[:-1]:
+        temp = ''
+        for j in mecab.nouns(i):
+            if j not in stop_words:
+                temp += j + ' '
+        new_docs.append(temp)
+
+    ####################### K-Means clustering ###############################
+    paragraphs = []
+    paragraphs2 = []
+    paragraphs3 = []
+    paragraphs4 = []
+
+    # tfidf -> 단어 vector화
+    vectorizer = TfidfVectorizer(max_features = max_word)
+    sp_matrix = vectorizer.fit_transform(new_docs)
+    
+    Kmodel = KMeans(n_clusters=nums, init='k-means++', max_iter=800, n_init=4)
+    Kmodel.fit(sp_matrix)
+
+    order_centroids = Kmodel.cluster_centers_.argsort()[:, ::-1]
+    terms = vectorizer.get_feature_names()
+
+    for i in range(nums):
+        paragraphs.append([x for x, y in zip(documents, Kmodel.labels_) if  y == i])
+        paragraphs2.append([x for x, y in zip(new_docs, Kmodel.labels_) if y == i])
+
+    for i in range(len(paragraphs2)):
+        temp,temp2 = '', ''
+        for j in paragraphs[i]:
+            temp += j
+        for j in paragraphs2[i]:
+            temp2 += j
+        paragraphs3.append(temp)
+        paragraphs4.append(temp2.split()[:-1])
+    del paragraphs2, paragraphs
+
+    ##################### keyword extraction ############################
+    vectorizer = TfidfVectorizer()
+    sp_matrix = vectorizer.fit_transform(documents)
+    word2id = defaultdict(lambda : 0)
+    for idx, feature in enumerate(vectorizer.get_feature_names()):
+        word2id[feature] = idx
+
+    li = []
+
+    for i, sentence in enumerate(documents):
+        morph = mecab.nouns(sentence)
+        a = [(token, sp_matrix[i, word2id[token]]) for token in morph if token not in stop_words]
+        sortt = sorted(a, key=lambda k:k[1])
+        sortt = rmmult(sortt)
+
+        li += [(token, sp_matrix[i, word2id[token]]) for token in morph]
+
+        sort_li = sorted(li, key=lambda k: k[1])
+    a = sort_li[::-1]
+    keywords = [word for word, score in a[:10]]
+
+    ###################### subject predict #############################
+    subject_classifier = []
+    topic_idx = []
+    for i in range(nums):
+        sequences = tokenizer.texts_to_sequences([paragraphs4[i]])
+        sequences_matrix = sequence.pad_sequences(sequences, maxlen=max_len)
+        topic_idx.append(model.predict_classes(sequences_matrix))
+
+    ################## return ###############################
+    # 1. subject별 내용
+    result = {'new_str' : '','subject': [], 'paragraph':[], 'keywords' : []}
+    result['new_str'] = str_
+    result['keywords'] = keywords
+    for i in range(nums):
+        result['subject'].append(topic[str(int(topic_idx[i]))])
+        result['paragraph'].append(paragraphs3[i])
+    return result
+
+    
+
 @app.route("/classifier", methods=["POST"])
 def classifier():
     data = request.get_json(silent=True)
-    return jsonify({'result': type(data)})
+    
+    str_ = data['file_url'] # 나중에 stt url받아서 api로 전송
+    nums = data['subject_nums']
+
+    result = keyword_subjectClassifier(str_, nums)
+
+    return jsonify(result)
     
