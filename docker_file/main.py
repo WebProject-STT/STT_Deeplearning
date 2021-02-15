@@ -105,9 +105,6 @@ def keyword_subjectClassifier(str_, nums):
     Kmodel = KMeans(n_clusters=nums, init='k-means++', max_iter=800, n_init=4)
     Kmodel.fit(sp_matrix)
 
-    order_centroids = Kmodel.cluster_centers_.argsort()[:, ::-1]
-    terms = vectorizer.get_feature_names()
-
     for i in range(nums):
         paragraphs.append([x for x, y in zip(documents, Kmodel.labels_) if  y == i])
         paragraphs2.append([x for x, y in zip(new_docs, Kmodel.labels_) if y == i])
@@ -144,7 +141,6 @@ def keyword_subjectClassifier(str_, nums):
     keywords = [word for word, score in a[:10]]
 
     ###################### subject predict #############################
-    subject_classifier = []
     topic_idx = []
     for i in range(nums):
         sequences = tokenizer.texts_to_sequences([paragraphs4[i]])
@@ -164,18 +160,17 @@ def keyword_subjectClassifier(str_, nums):
     
 
 @app.route("/classifier", methods=["POST"])
-def classifier():
+def classfier():
     data = request.get_json(silent=True)
     
     str_ = data['file_url'] # 나중에 stt url받아서 api로 전송
     nums = data['subject_nums']
 
-    result = keyword_subjectClassifier(str_, nums)
+    result = keyword_subjectClassifier(str_, int(nums))
 
     return jsonify(result)
     
 
 if __name__ == '__main__':
     import argparse
-    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 8090), debug =
-True))
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000), debug = True))
