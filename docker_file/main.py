@@ -174,3 +174,8 @@ def classifier():
 
     return jsonify(result)
     
+
+if __name__ == '__main__':
+    import argparse
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 8090), debug =
+True))
