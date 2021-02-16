@@ -15,7 +15,14 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends tzdata g++ git curl
 RUN apt-get install -y wget build-essential autotools-dev automake libmecab2 libmecab-dev git
 RUN apt-get install -y default-jdk default-jre
-RUN apt-get install -y python3 python3-pip python3-dev
+RUN apt-get install -y python3.7 python3-pip python3-dev
+RUN apt install vim -y
+
+# Add 3.7 to the available alternatives
+RUN update-alternatives --install /usr/bin/python python3 /usr/bin/python3.7 1
+
+# Set python3.7 as the default python
+RUN update-alternatives --set python3 /usr/bin/python3.7
 
 RUN wget -O - https://bitbucket.org/eunjeon/mecab-ko/downloads/mecab-0.996-ko-0.9.2.tar.gz | tar zxfv -
 RUN cd mecab-0.996-ko-0.9.2; ./configure; make; make install; ldconfig
