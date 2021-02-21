@@ -1,10 +1,15 @@
-FROM ubuntu:18.04
+ROM ubuntu:18.04
 ENV TZ=Asia/Seoul
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 ENV PORT = 5000
 
 ENV LC_ALL=C.UTF-8
 ENV LANG=C.UTF-8
+
+ENV AWS_ACCESS_KEY_ID=""
+ENV AWS_SECRET_ACCESS_KEY=""
+ENV AWS_DEFAULT_REGION=""
+
 
 RUN cp /etc/apt/sources.list /etc/apt/sources.list.org
 RUN sed -e 's/\(us.\)\?archive.ubuntu.com/ftp.daumkakao.com/g' -e 's/security.ubuntu.com/ftp.daumkakao.com/g' < /etc/apt/sources.list.o

@@ -11,10 +11,38 @@ from collections import defaultdict
 import pickle, json, os
 import re
 
+import requests
+import time
+import boto3
+
 from konlpy.tag import Mecab
 mecab = Mecab()
 
 app = Flask(__name__)
+
+def transcribe_file(job_name, media_file, file_uri, transcribe_client):
+    transcribe_client.start_transcription_job(
+        TranscriptionJobName=job_name,
+        Media={'MediaFileUri': file_uri},
+        MediaFormat=media_file,
+        LanguageCode='ko-KR'
+    )
+
+    max_tries = 60
+    while max_tries > 0:
+        max_tries -= 1
+        job = transcribe_client.get_transcription_job(TranscriptionJobName=job_name)
+        job_status = job['TranscriptionJob']['TranscriptionJobStatus']
+        if job_status in ['COMPLETED', 'FAILED']:
+            if job_status == 'COMPLETED':
+                trans_url = job['TranscriptionJob']['Transcript']['TranscriptFileUri']
+                resp = requests.get(url=url)
+                data = resp.json()
+                return data['results']['transcripts'][0]['transcript']
+            return False
+        else:
+            return False
+        time.sleep(10)
 
 def rmmult(sort_):
     lili = []
@@ -163,8 +191,11 @@ def keyword_subjectClassifier(str_, nums):
 def classfier():
     data = request.get_json(silent=True)
     
-    str_ = data['file_url'] # 나중에 stt url받아서 api로 전송
+    file_info = data['file_info'] # 나중에 stt url받아서 api로 전송
     nums = data['subject_nums']
+
+    transcribe_client = boto3.client('transcribe')
+    str_ = transcribe_file(file_info[0], file_info[1], file_info[2], transcribe_client)
 
     result = keyword_subjectClassifier(str_, int(nums))
 
