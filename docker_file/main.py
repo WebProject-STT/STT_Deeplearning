@@ -83,7 +83,7 @@ def keyword_subjectClassifier(str_, nums):
         '지금', '할 수가', '할 수', '각종', '요게', '여기', '혹시', '우리', '한번', '이번', '당신', '이렇게', '차고', '어떻게', '뭐', '깜짝', '거지',
         '싶어서', '그래서', '정말', '이런', '도저히', '거죠', '하면은', '이제', '그렇게', '그럼', '많이', '이거', '그거', '저거', '누가',
         '그래', '그냥', '바로', '누가', '다시', '그래도', '간단히', '거야', '이따', '00', '근데', '결국', '이때', '누가', '그런', '딱', '일단',
-        '보면', '하나', '어디', '부터', '원', '위하', '나오', '중', '못하', '그렇', '오', '대하', '한', '지', '하']
+        '보면', '하나', '어디', '부터', '원', '위하', '나오', '중', '못하', '그렇', '오', '대하', '한', '지', '하', '사실']
     ########################## preprocessing ######################################
     str_ = re.sub('[^A-Za-z0-9가-힣.]', ' ', str_)
     str_ = re.sub(' +', ' ', str_)
@@ -167,24 +167,24 @@ def keyword_subjectClassifier(str_, nums):
 
         sort_li = sorted(li, key=lambda k: k[1])
     a = sort_li[::-1]
-    keywords = [word for word, score in a[:10]]
+    keywords = list(set([word for word, score in a[:10]]))
     logging.error("keyword : ", keywords)
     ###################### subject predict #############################
     logging.error("papra4 : ",paragraphs4)
     topic_idx = []
     for i in range(nums):
-        sequences = tokenizer.texts_to_sequences(paragraphs4[i])
+        sequences = tokenizer.texts_to_sequences([paragraphs4[i]])
         sequences_matrix = sequence.pad_sequences(sequences, maxlen=1000)
         topic_idx.append(model.predict_classes(sequences_matrix))
 
     ################## return ###############################
     # 1. subject별 내용
-    result = {'new_str' : '','subject': [], 'paragraph':[], 'keywords' : []}
-    result['new_str'] = str_
-    result['keywords'] = keywords
+    result = {'origin' : '','title': [], 'desc':[], 'tagList' : []}
+    result['origin'] = str_
+    result['tagList'] = keywords
     for i in range(nums):
-        result['subject'].append(topic[str(int(topic_idx[i]))])
-        result['paragraph'].append(paragraphs3[i])
+        result['title'].append(topic[str(int(topic_idx[i]))])
+        result['desc'].append(paragraphs3[i])
     return result
 
     
@@ -202,7 +202,7 @@ def classfier():
     if str_: 
         result = keyword_subjectClassifier(str_, int(nums))
         return jsonify(result)
-    else: return jsonify({'new_str' : False})
+    else: return jsonify({'origin' : False,'title': [], 'desc':[], 'tagList' : []})
 
 
 if __name__ == '__main__':
