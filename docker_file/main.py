@@ -11,6 +11,7 @@ from collections import defaultdict
 import pickle, json, os
 import re
 
+import logging
 import requests
 import time
 import boto3
@@ -27,7 +28,7 @@ def transcribe_file(job_name, media_file, file_uri, transcribe_client):
         MediaFormat=media_file,
         LanguageCode='ko-KR'
     )
-
+    result = ''
     max_tries = 60
     while max_tries > 0:
         max_tries -= 1
@@ -35,14 +36,16 @@ def transcribe_file(job_name, media_file, file_uri, transcribe_client):
         job_status = job['TranscriptionJob']['TranscriptionJobStatus']
         if job_status in ['COMPLETED', 'FAILED']:
             if job_status == 'COMPLETED':
-                trans_url = job['TranscriptionJob']['Transcript']['TranscriptFileUri']
+                url = job['TranscriptionJob']['Transcript']['TranscriptFileUri']
                 resp = requests.get(url=url)
                 data = resp.json()
-                return data['results']['transcripts'][0]['transcript']
-            return False
-        else:
-            return False
+                result = data['results']['transcripts'][0]['transcript']
+            else:
+                result = False
+            break
         time.sleep(10)
+    
+    return result
 
 def rmmult(sort_):
     lili = []
@@ -56,18 +59,16 @@ def rmmult(sort_):
 def keyword_subjectClassifier(str_, nums):
     ############################## setting ########################################
     # model load
-    model = load_model('./tools/Naver_dict_l3stm.h5')
+    model = load_model('./Naver_dict_l3stm.h5')
 
     # tokenizer load
-    with open("./tools/tokenizer3.pickle", 'rb') as fp:
+    with open("./tokenizer3.pickle", 'rb') as fp:
         tokenizer = pickle.load(fp)
 
     # token load
-    with open("./tools/token3.json", "r") as st_json:
+    with open("./token3.json", "r") as st_json:
         topic = json.load(st_json)
 
-    max_word =20000
-    max_len = 1000 #max_len = 500
     stop_words = [
         '가운데', '대체로', '간의', '크게', '같', '아니', '있', '되', '두', '받', '많', '크', '좋', '따르', '만들', '시키', '그러', '하나',
         '모르', '데', '자신', '어떤', '명', '앞', '번', '보이', '나', '어떻', '월', '들', '이렇', '점', '싶', '좀', '잘', '통하',
@@ -83,7 +84,6 @@ def keyword_subjectClassifier(str_, nums):
         '싶어서', '그래서', '정말', '이런', '도저히', '거죠', '하면은', '이제', '그렇게', '그럼', '많이', '이거', '그거', '저거', '누가',
         '그래', '그냥', '바로', '누가', '다시', '그래도', '간단히', '거야', '이따', '00', '근데', '결국', '이때', '누가', '그런', '딱', '일단',
         '보면', '하나', '어디', '부터', '원', '위하', '나오', '중', '못하', '그렇', '오', '대하', '한', '지', '하']
-
     ########################## preprocessing ######################################
     str_ = re.sub('[^A-Za-z0-9가-힣.]', ' ', str_)
     str_ = re.sub(' +', ' ', str_)
@@ -127,7 +127,7 @@ def keyword_subjectClassifier(str_, nums):
     paragraphs4 = []
 
     # tfidf -> 단어 vector화
-    vectorizer = TfidfVectorizer(max_features = max_word)
+    vectorizer = TfidfVectorizer(max_features = 20000)
     sp_matrix = vectorizer.fit_transform(new_docs)
     
     Kmodel = KMeans(n_clusters=nums, init='k-means++', max_iter=800, n_init=4)
@@ -148,6 +148,7 @@ def keyword_subjectClassifier(str_, nums):
     del paragraphs2, paragraphs
 
     ##################### keyword extraction ############################
+    logging.error("papra3 : ",paragraphs3)
     vectorizer = TfidfVectorizer()
     sp_matrix = vectorizer.fit_transform(documents)
     word2id = defaultdict(lambda : 0)
@@ -167,12 +168,13 @@ def keyword_subjectClassifier(str_, nums):
         sort_li = sorted(li, key=lambda k: k[1])
     a = sort_li[::-1]
     keywords = [word for word, score in a[:10]]
-
+    logging.error("keyword : ", keywords)
     ###################### subject predict #############################
+    logging.error("papra4 : ",paragraphs4)
     topic_idx = []
     for i in range(nums):
-        sequences = tokenizer.texts_to_sequences([paragraphs4[i]])
-        sequences_matrix = sequence.pad_sequences(sequences, maxlen=max_len)
+        sequences = tokenizer.texts_to_sequences(paragraphs4[i])
+        sequences_matrix = sequence.pad_sequences(sequences, maxlen=1000)
         topic_idx.append(model.predict_classes(sequences_matrix))
 
     ################## return ###############################
@@ -193,14 +195,15 @@ def classfier():
     
     file_info = data['file_info'] # 나중에 stt url받아서 api로 전송
     nums = data['subject_nums']
-
+    str_ = ""
     transcribe_client = boto3.client('transcribe')
     str_ = transcribe_file(file_info[0], file_info[1], file_info[2], transcribe_client)
+    logging.error("Str : ", str_)
+    if str_: 
+        result = keyword_subjectClassifier(str_, int(nums))
+        return jsonify(result)
+    else: return jsonify({'new_str' : False})
 
-    result = keyword_subjectClassifier(str_, int(nums))
-
-    return jsonify(result)
-    
 
 if __name__ == '__main__':
     import argparse
